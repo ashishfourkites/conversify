@@ -299,10 +299,10 @@
     <script>
         // Configuration - Update these with your LiveKit details
         const LIVEKIT_URL = 'wss://fk-ivr-utmji7un.livekit.cloud';
-        const TOKEN_ENDPOINT = '/api/token'; // You'll need to create this endpoint
+        // const TOKEN_ENDPOINT = '/api/token'; // You'll need to create this endpoint
         
         // For testing, you can hardcode a token here (not recommended for production)
-        // const TOKEN = 'your-test-token-here';
+        const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTEyODE4MjcsImlzcyI6IkFQSUR6N1luYjJSdXRBSiIsIm5iZiI6MTc1MTI4MDkyNywic3ViIjoidXNlci0xIiwidmlkZW8iOnsiY2FuUHVibGlzaCI6dHJ1ZSwiY2FuUHVibGlzaERhdGEiOnRydWUsImNhblN1YnNjcmliZSI6dHJ1ZSwicm9vbSI6ImNvbnZlcnNpZnktZGV2Iiwicm9vbUpvaW4iOnRydWV9fQ._wNVQkY1zduxmYW0ouasFN4UBkT2CYh26UjiUQwykzk';
 
         let room;
         let audioTrack;
@@ -331,16 +331,16 @@
 
                 // Get token - for now you'll need to implement this endpoint
                 // For testing, you can generate a token from LiveKit dashboard
-                let token;
-                try {
-                    const response = await fetch(TOKEN_ENDPOINT);
-                    const data = await response.json();
-                    token = data.token;
-                } catch (e) {
-                    // Fallback for testing - update this with your token
-                    token = prompt('Please enter your LiveKit token:');
-                    if (!token) throw new Error('Token required');
-                }
+                let token = TOKEN;
+                // try {
+                //     const response = await fetch(TOKEN_ENDPOINT);
+                //     const data = await response.json();
+                //     token = data.token;
+                // } catch (e) {
+                //     // Fallback for testing - update this with your token
+                //     token = prompt('Please enter your LiveKit token:');
+                //     if (!token) throw new Error('Token required');
+                // }
 
                 // Set up event handlers
                 room.on('connected', () => {
