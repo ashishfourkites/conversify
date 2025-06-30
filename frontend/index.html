@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conversify Voice Assistant</title>
-    <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -208,7 +207,6 @@
             font-size: 0.9rem;
         }
 
-        /* Loading animation */
         .loading {
             display: none;
             position: absolute;
@@ -242,7 +240,6 @@
             }
         }
 
-        /* Mobile responsive */
         @media (max-width: 600px) {
             h1 { font-size: 2rem; }
             .mic-container { 
@@ -283,32 +280,35 @@
         
         <div class="status" id="status">
             <span class="status-dot"></span>
-            <span id="statusText">Connecting...</span>
+            <span id="statusText">Loading SDK...</span>
         </div>
         
         <div class="error" id="error"></div>
         
         <div class="controls">
-            <button id="connectBtn" class="control-button">Connect</button>
+            <button id="connectBtn" class="control-button" disabled>Connect</button>
             <button id="transcriptBtn" class="control-button">Show Transcript</button>
         </div>
         
         <div class="transcript" id="transcript"></div>
     </div>
 
+    <!-- Load LiveKit SDK from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
+    
     <script>
-        // Configuration - Update these with your LiveKit details
+        // Configuration
         const LIVEKIT_URL = 'wss://fk-ivr-utmji7un.livekit.cloud';
-        // const TOKEN_ENDPOINT = '/api/token'; // You'll need to create this endpoint
-        
-        // For testing, you can hardcode a token here (not recommended for production)
-        const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTEyODE4MjcsImlzcyI6IkFQSUR6N1luYjJSdXRBSiIsIm5iZiI6MTc1MTI4MDkyNywic3ViIjoidXNlci0xIiwidmlkZW8iOnsiY2FuUHVibGlzaCI6dHJ1ZSwiY2FuUHVibGlzaERhdGEiOnRydWUsImNhblN1YnNjcmliZSI6dHJ1ZSwicm9vbSI6ImNvbnZlcnNpZnktZGV2Iiwicm9vbUpvaW4iOnRydWV9fQ._wNVQkY1zduxmYW0ouasFN4UBkT2CYh26UjiUQwykzk';
+        const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTEzNjk1ODUsImlzcyI6IkFQSUR6N1luYjJSdXRBSiIsIm5iZiI6MTc1MTI4MzE4NSwic3ViIjoiY29udmVyc2lmeS1kZXYiLCJ2aWRlbyI6eyJjYW5QdWJsaXNoIjp0cnVlLCJjYW5QdWJsaXNoRGF0YSI6dHJ1ZSwiY2FuU3Vic2NyaWJlIjp0cnVlLCJyb29tIjoiY29udmVyc2lmeS1kZXYiLCJyb29tSm9pbiI6dHJ1ZX19.IcGvply75vByF8aPUhEMt6fDIraD5_jEBEQo1MyQ_KY';
 
+        // Global variables
         let room;
         let audioTrack;
         let isConnected = false;
         let isMuted = true;
+        let LiveKitSDK;
 
+        // Get DOM elements
         const micButton = document.getElementById('micButton');
         const statusText = document.getElementById('statusText');
         const status = document.getElementById('status');
@@ -317,34 +317,73 @@
         const transcriptBtn = document.getElementById('transcriptBtn');
         const transcript = document.getElementById('transcript');
 
-        // Initialize LiveKit room
+        // Wait for SDK to load
+        function waitForLiveKit() {
+            return new Promise((resolve) => {
+                const checkInterval = setInterval(() => {
+                    // Check multiple possible locations
+                    if (typeof LivekitClient !== 'undefined') {
+                        LiveKitSDK = LivekitClient;
+                        clearInterval(checkInterval);
+                        resolve();
+                    } else if (typeof LiveKit !== 'undefined') {
+                        LiveKitSDK = LiveKit;
+                        clearInterval(checkInterval);
+                        resolve();
+                    } else if (typeof window.LivekitClient !== 'undefined') {
+                        LiveKitSDK = window.LivekitClient;
+                        clearInterval(checkInterval);
+                        resolve();
+                    } else if (typeof window.LiveKit !== 'undefined') {
+                        LiveKitSDK = window.LiveKit;
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100);
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    resolve();
+                }, 10000);
+            });
+        }
+
+        // Initialize app when SDK is ready
+        async function initializeApp() {
+            await waitForLiveKit();
+
+            if (!LiveKitSDK) {
+                error.textContent = 'LiveKit SDK failed to load. Please refresh the page.';
+                statusText.textContent = 'SDK Error';
+                console.error('LiveKit SDK not found after waiting');
+                return;
+            }
+
+            console.log('LiveKit SDK loaded successfully:', LiveKitSDK);
+            statusText.textContent = 'Ready to connect';
+            connectBtn.disabled = false;
+        }
+
+        // Connect to LiveKit room
         async function connectToRoom() {
             try {
                 error.textContent = '';
                 statusText.textContent = 'Connecting...';
                 connectBtn.disabled = true;
 
-                room = new LivekitClient.Room({
+                console.log('Creating Room object with SDK:', LiveKitSDK);
+                
+                // Create room instance - this is just a client object, not creating a server room
+                room = new LiveKitSDK.Room({
                     adaptiveStream: true,
                     dynacast: true,
+                    autoSubscribe: true,
                 });
-
-                // Get token - for now you'll need to implement this endpoint
-                // For testing, you can generate a token from LiveKit dashboard
-                let token = TOKEN;
-                // try {
-                //     const response = await fetch(TOKEN_ENDPOINT);
-                //     const data = await response.json();
-                //     token = data.token;
-                // } catch (e) {
-                //     // Fallback for testing - update this with your token
-                //     token = prompt('Please enter your LiveKit token:');
-                //     if (!token) throw new Error('Token required');
-                // }
 
                 // Set up event handlers
                 room.on('connected', () => {
-                    console.log('Connected to room');
+                    console.log('Connected to existing room: conversify-dev');
                     isConnected = true;
                     statusText.textContent = 'Connected';
                     status.classList.add('connected');
@@ -354,59 +393,63 @@
                     connectBtn.disabled = false;
                 });
 
-                room.on('disconnected', () => {
-                    console.log('Disconnected from room');
+                room.on('disconnected', (reason) => {
+                    console.log('Disconnected from room:', reason);
                     handleDisconnect();
                 });
 
+                room.on('participantConnected', (participant) => {
+                    console.log('Participant connected:', participant.identity);
+                    // Only show message for other participants (likely the agent)
+                    if (participant.identity !== 'conversify-dev') {
+                        addToTranscript(`${participant.identity} joined`, 'system');
+                    }
+                });
+
                 room.on('trackSubscribed', (track, publication, participant) => {
+                    console.log('Track subscribed:', track.kind, 'from', participant.identity);
                     if (track.kind === 'audio') {
-                        // Attach audio track to play agent's voice
+                        // Attach and play agent's audio
                         const audioElement = track.attach();
-                        audioElement.play();
-                        
-                        // Visual feedback when agent is speaking
-                        track.on('audioLevelChanged', (level) => {
-                            if (level > 0.01) {
-                                micButton.classList.add('speaking');
-                            } else {
-                                micButton.classList.remove('speaking');
-                            }
-                        });
+                        document.body.appendChild(audioElement);
+                        audioElement.play().catch(e => console.error('Audio play failed:', e));
                     }
                 });
 
-                room.on('dataReceived', (data, participant) => {
-                    // Handle transcript data if your agent sends it
-                    try {
-                        const message = JSON.parse(new TextDecoder().decode(data));
-                        if (message.type === 'transcript') {
-                            addToTranscript(message.text, message.speaker);
-                        }
-                    } catch (e) {
-                        console.error('Error parsing data:', e);
-                    }
+                room.on('error', (err) => {
+                    console.error('Room error:', err);
+                    error.textContent = `Room error: ${err.message}`;
                 });
 
-                // Connect to room
-                await room.connect(LIVEKIT_URL, token);
+                // Connect to the existing room on LiveKit Cloud
+                console.log('Connecting to existing room "conversify-dev" on LiveKit Cloud...');
+                await room.connect(LIVEKIT_URL, TOKEN);
+                console.log('Successfully connected!');
 
-                // Create and publish local audio track
-                audioTrack = await LivekitClient.createLocalAudioTrack({
+                // Create local audio track
+                console.log('Creating local audio track...');
+                audioTrack = await LiveKitSDK.createLocalAudioTrack({
                     echoCancellation: true,
                     noiseSuppression: true,
                 });
 
+                // Publish audio track
                 await room.localParticipant.publishTrack(audioTrack);
+                console.log('Audio track published');
                 
                 // Start muted
                 await audioTrack.mute();
+                console.log('Microphone muted by default');
+
+                // Your agent should now receive a job!
+                addToTranscript('Connected to room. Agent should join shortly...', 'system');
 
             } catch (err) {
                 console.error('Connection failed:', err);
                 error.textContent = `Connection failed: ${err.message}`;
                 connectBtn.disabled = false;
                 connectBtn.textContent = 'Connect';
+                statusText.textContent = 'Connection failed';
             }
         }
 
@@ -423,24 +466,34 @@
 
         // Microphone button handler
         micButton.addEventListener('click', async () => {
-            if (!isConnected || !audioTrack) return;
+            if (!isConnected || !audioTrack) {
+                console.log('Cannot toggle mic: not connected or no audio track');
+                return;
+            }
 
-            if (isMuted) {
-                await audioTrack.unmute();
-                micButton.classList.add('listening');
-                statusText.textContent = 'Listening...';
-                isMuted = false;
-            } else {
-                await audioTrack.mute();
-                micButton.classList.remove('listening');
-                statusText.textContent = 'Connected';
-                isMuted = true;
+            try {
+                if (isMuted) {
+                    await audioTrack.unmute();
+                    micButton.classList.add('listening');
+                    statusText.textContent = 'Listening...';
+                    isMuted = false;
+                    console.log('Microphone unmuted - you can speak now!');
+                } else {
+                    await audioTrack.mute();
+                    micButton.classList.remove('listening');
+                    statusText.textContent = 'Connected';
+                    isMuted = true;
+                    console.log('Microphone muted');
+                }
+            } catch (err) {
+                console.error('Error toggling microphone:', err);
+                error.textContent = `Microphone error: ${err.message}`;
             }
         });
 
         // Connect button handler
         connectBtn.addEventListener('click', async () => {
-            if (isConnected) {
+            if (isConnected && room) {
                 await room.disconnect();
             } else {
                 await connectToRoom();
@@ -459,13 +512,20 @@
         function addToTranscript(text, speaker = 'user') {
             const item = document.createElement('div');
             item.className = `transcript-item ${speaker}`;
-            item.textContent = `${speaker === 'user' ? 'You' : 'Assistant'}: ${text}`;
+            if (speaker === 'system') {
+                item.style.background = 'rgba(136, 136, 136, 0.2)';
+                item.style.textAlign = 'center';
+                item.style.margin = '0.5rem 0';
+                item.textContent = text;
+            } else {
+                item.textContent = `${speaker === 'user' ? 'You' : 'Assistant'}: ${text}`;
+            }
             transcript.appendChild(item);
             transcript.scrollTop = transcript.scrollHeight;
         }
 
-        // Auto-connect on load (optional)
-        // window.addEventListener('load', connectToRoom);
+        // Start initialization when page loads
+        window.addEventListener('load', initializeApp);
     </script>
 </body>
 </html>
