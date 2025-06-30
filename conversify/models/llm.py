@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 import httpx
+import logging
 
 import openai
 from livekit.agents import APIConnectionError, APIStatusError, APITimeoutError, llm
@@ -27,6 +28,7 @@ from openai.types.chat.chat_completion_chunk import Choice
 
 from .utils import to_chat_ctx, to_fnc_ctx
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class _LLMOptions:
@@ -56,9 +58,15 @@ class OpenaiLLM(llm.LLM):
         model = llm_config['model']
         api_key = llm_config['api_key']
         base_url = llm_config['base_url']
-        temperature = llm_config['temperature']
-        parallel_tool_calls = llm_config['parallel_tool_calls']
-        tool_choice = llm_config['tool_choice']
+        temperature = llm_config.get('temperature', 0.7)
+        parallel_tool_calls = llm_config.get('parallel_tool_calls', False)
+        tool_choice = llm_config.get('tool_choice', 'auto')
+        
+        # Azure-specific configuration
+        api_version = llm_config.get('api_version')
+        azure_deployment = llm_config.get('azure_deployment')
+        
+        logger.info(f"Initializing LLM with model: {model}")
         
         timeout = httpx.Timeout(
             connect=15.0,
@@ -74,22 +82,49 @@ class OpenaiLLM(llm.LLM):
             tool_choice=tool_choice,
         )
         
-        # Use the provided client or create a new one with configured settings
-        self._client = client or openai.AsyncClient(
-            api_key=api_key,
-            base_url=base_url,
-            max_retries=0,
-            http_client=httpx.AsyncClient(
-                timeout=timeout,
-                follow_redirects=True,
-                limits=httpx.Limits(
-                    max_connections=50,
-                    max_keepalive_connections=50,
-                    keepalive_expiry=120,
+        # Configure client for Azure OpenAI
+                # Configure client for Azure OpenAI
+        if api_version and azure_deployment:
+            logger.info(f"Using Azure OpenAI with deployment: {azure_deployment}")
+            # For Azure, we need to use the deployment name for API calls
+            # and pass the api version in the URL
+            base_url_with_deployment = f"{base_url}openai/deployments/{azure_deployment}"
+            base_url_with_version = f"{base_url_with_deployment}?api-version={api_version}"
+            
+            self._client = client or openai.AsyncClient(
+                api_key=api_key,
+                base_url=base_url_with_version,
+                max_retries=0,
+                http_client=httpx.AsyncClient(
+                    timeout=timeout,
+                    follow_redirects=True,
+                    limits=httpx.Limits(
+                        max_connections=50,
+                        max_keepalive_connections=50,
+                        keepalive_expiry=120,
+                    ),
                 ),
-            ),
-        )
-  
+            )
+            self._is_azure = True
+        else:
+            # Standard OpenAI client
+            logger.info(f"Using standard OpenAI API")
+            self._client = client or openai.AsyncClient(
+                api_key=api_key,
+                base_url=base_url,
+                max_retries=0,
+                http_client=httpx.AsyncClient(
+                    timeout=timeout,
+                    follow_redirects=True,
+                    limits=httpx.Limits(
+                        max_connections=50,
+                        max_keepalive_connections=50,
+                        keepalive_expiry=120,
+                    ),
+                ),
+            )
+            self._is_azure = False
+
     def chat(
         self,
         *,
@@ -137,6 +172,7 @@ class OpenaiLLM(llm.LLM):
             tools=tools or [],
             conn_options=conn_options,
             extra_kwargs=extra,
+            is_azure=self._is_azure,
         )
 
 
@@ -151,12 +187,14 @@ class LLMStream(llm.LLMStream):
         tools: list[FunctionTool],
         conn_options: APIConnectOptions,
         extra_kwargs: dict[str, Any],
+        is_azure: bool = False,
     ) -> None:
         super().__init__(llm, chat_ctx=chat_ctx, tools=tools, conn_options=conn_options)
         self._model = model
         self._client = client
         self._llm = llm
         self._extra_kwargs = extra_kwargs
+        self._is_azure = is_azure
 
     async def _run(self) -> None:
         # current function call that we're waiting for full completion (args are streamed)
@@ -169,14 +207,22 @@ class LLMStream(llm.LLMStream):
         retryable = True
 
         try:
-            self._oai_stream = stream = await self._client.chat.completions.create(
-                messages=to_chat_ctx(self._chat_ctx, id(self._llm)),
-                tools=to_fnc_ctx(self._tools) if self._tools else openai.NOT_GIVEN,
-                model=self._model,
-                stream_options={"include_usage": True},
-                stream=True,
+            # Build API call parameters
+            api_params = {
+                "messages": to_chat_ctx(self._chat_ctx, id(self._llm)),
+                "tools": to_fnc_ctx(self._tools) if self._tools else openai.NOT_GIVEN,
+                "stream_options": {"include_usage": True},
+                "stream": True,
                 **self._extra_kwargs,
-            )
+            }
+            
+            # For Azure OpenAI, the model is specified in the deployment URL
+            # For standard OpenAI, we need to include the model parameter
+            if not self._is_azure:
+                api_params["model"] = self._model
+                
+            # Create chat completion
+            self._oai_stream = stream = await self._client.chat.completions.create(**api_params)
 
             async with stream:
                 async for chunk in stream:
@@ -212,6 +258,7 @@ class LLMStream(llm.LLMStream):
                 retryable=retryable,
             ) from None
         except Exception as e:
+            logger.error(f"Error during LLM completion: {str(e)}", exc_info=True)
             raise APIConnectionError(retryable=retryable) from e
 
     def _parse_choice(self, id: str, choice: Choice) -> llm.ChatChunk | None:

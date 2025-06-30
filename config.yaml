@@ -19,12 +19,14 @@ stt:
     warmup_audio: "conversify/data/warmup_audio.wav"
 
 llm:
-  base_url: "http://localhost:11434/v1"  # Ollama's endpoint
-  api_key: "ollama"                      # Ollama doesn't need a real key
-  model: "llama3.2:3b"                   # Or whatever model you have
-  temperature: 0.4                       # ADD THIS LINE
-  parallel_tool_calls: false             # ADD THIS LINE
-  tool_choice: "auto"                    # ADD THIS LINE
+  api_key: "3d1704dc0fea4e0fae7f909d99f9ddaf"
+  base_url: "https://phd-ai-poc.openai.azure.com/"
+  azure_deployment: "gpt-4"
+  api_version: "2024-02-01"
+  model: "gpt-4"
+  temperature: 0.4
+  parallel_tool_calls: false
+  tool_choice: "auto"
 
 tts:
   kokoro:

@@ -70,10 +70,29 @@ async def entrypoint(ctx: JobContext, config: Dict[str, Any]):
     shared_state: Dict[str, Any] = {}
 
     # Initialize LLM Client here using config
+    # Initialize LLM Client here using config
+    # Initialize LLM Client here using config   
     llm_config = config['llm']
     try:
-        llm_client = AsyncClient(api_key=llm_config['api_key'], base_url=llm_config['base_url'])
-        logger.info(f"Initialized LLM Client at {llm_config['base_url']}")
+        api_version = llm_config.get('api_version')
+        azure_deployment = llm_config.get('azure_deployment')
+        
+        if api_version and azure_deployment:
+            # Azure OpenAI setup - for Azure we need to pass the api version as a query parameter
+            # but we need to do it differently than in our custom client
+            base_url = f"{llm_config['base_url']}openai/deployments/{azure_deployment}"
+            # Add api-version as part of the URL for Azure
+            base_url_with_version = f"{base_url}?api-version={api_version}"
+            
+            llm_client = AsyncClient(
+                api_key=llm_config['api_key'],
+                base_url=base_url_with_version
+            )
+            logger.info(f"Initialized Azure OpenAI Client at {base_url}")
+        else:
+            # Standard OpenAI setup
+            llm_client = AsyncClient(api_key=llm_config['api_key'], base_url=llm_config['base_url'])
+            logger.info(f"Initialized standard OpenAI Client at {llm_config['base_url']}")
     except Exception as e:
         logger.error(f"Failed to initialize LLM Client: {e}")
         raise

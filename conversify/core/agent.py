@@ -66,9 +66,16 @@ class ConversifyAgent(Agent):
         await self.session.say(self.config['agent']['greeting'])
         
     async def on_exit(self):
-        """Called when the agent leaves. Says goodbye."""
+        """Called when the agent leaves. Says goodbye if possible."""
         logger.info(f"Agent '{self.participant_identity}' exiting session.")
-        await self.session.say(self.config['agent']['goodbye'])
+        try:
+            await self.session.say(self.config['agent']['goodbye'])
+            logger.info("Goodbye message sent successfully.")
+        except RuntimeError as e:
+            # Handle the case when the session is already closing
+            logger.info(f"Could not say goodbye: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error during agent exit: {str(e)}", exc_info=True)
 
     def process_image(self, chat_ctx: llm.ChatContext):
         """Checks for vision keywords and adds latest image from shared_state if applicable."""
