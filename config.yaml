@@ -11,20 +11,20 @@ agent:
 
 stt:
   whisper:
-    language: "en"                      
-    model: "deepdml/faster-whisper-large-v3-turbo-ct2" 
-    device: "cuda"                     
-    compute_type: "float16"             
-    model_cache_directory: "conversify/data/models_cache"  
-    warmup_audio: "conversify/data/warmup_audio.wav"  
+    language: "en"
+    model: "guillaumekln/faster-whisper-tiny"  # Pre-converted model
+    device: "cpu"
+    compute_type: "int8"
+    model_cache_directory: "conversify/data/models_cache"
+    warmup_audio: "conversify/data/warmup_audio.wav"
 
 llm:
-  base_url: "http://127.0.0.1:30000/v1" 
-  api_key: "NULL"                      
-  model: "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"                 
-  temperature: 0.4                  
-  parallel_tool_calls: false
-  tool_choice: "auto"
+  base_url: "http://localhost:11434/v1"  # Ollama's endpoint
+  api_key: "ollama"                      # Ollama doesn't need a real key
+  model: "llama3.2:3b"                   # Or whatever model you have
+  temperature: 0.4                       # ADD THIS LINE
+  parallel_tool_calls: false             # ADD THIS LINE
+  tool_choice: "auto"                    # ADD THIS LINE
 
 tts:
   kokoro:
@@ -44,7 +44,7 @@ vad:
   sample_rate: 16000  
 
 vision:
-  use: true                            
+  use: false                            
   video_frame_interval: 0.2   
 
 memory:

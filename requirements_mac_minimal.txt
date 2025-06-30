@@ -1,0 +1,15 @@
+faster-whisper==1.1.1
+livekit-agents==1.1.4
+livekit-plugins-noise-cancellation
+livekit-plugins-openai
+livekit-plugins-silero
+livekit-plugins-turn-detector
+memoripy==0.1.2
+python-dotenv
+soundfile
+ctranslate2==4.4.0
+langchain-openai
+openai
+httpx
+numpy
+pydantic

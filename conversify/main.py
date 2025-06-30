@@ -3,7 +3,8 @@ import asyncio
 from dotenv import load_dotenv
 from typing import Dict, Any
 from openai import AsyncClient
-import functools 
+import functools
+from livekit.plugins import deepgram 
 
 from livekit.agents import (
     AgentSession,
@@ -23,7 +24,7 @@ from livekit.agents.types import NOT_GIVEN
 from livekit.plugins import noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-from .models.tts import KokoroTTS
+# from .models.tts import KokoroTTS
 from .models.stt import WhisperSTT
 from .models.llm import OpenaiLLM
 from .core.vision import video_processing_loop
@@ -31,6 +32,7 @@ from .core.agent import ConversifyAgent
 from .utils.logger import setup_logging
 from .utils.config import ConfigManager
 from .core.callbacks import metrics_callback, shutdown_callback
+from livekit.plugins import elevenlabs
 
 logger = logging.getLogger(__name__)
 
@@ -86,8 +88,8 @@ async def entrypoint(ctx: JobContext, config: Dict[str, Any]):
     session = AgentSession(
         vad=vad,
         llm=OpenaiLLM(client=llm_client, config=config), 
-        stt=WhisperSTT(config=config),
-        tts=KokoroTTS(config=config),
+        stt=deepgram.STT(model="nova-2"),
+        tts=elevenlabs.TTS(voice_id="CwhRBWXzGAHq8TQ4Fs17"),
         turn_detection=MultilingualModel() if config['agent']['use_eou'] else NOT_GIVEN
     )
     logger.info("AgentSession created.")
