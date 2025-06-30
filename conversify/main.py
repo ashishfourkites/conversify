@@ -89,7 +89,7 @@ async def entrypoint(ctx: JobContext, config: Dict[str, Any]):
         vad=vad,
         llm=OpenaiLLM(client=llm_client, config=config), 
         stt=deepgram.STT(model="nova-2"),
-        tts=elevenlabs.TTS(voice_id="CwhRBWXzGAHq8TQ4Fs17"),
+        tts=elevenlabs.TTS(voice_id="y6q7sBOSQHmqEttPyWkV"),
         turn_detection=MultilingualModel() if config['agent']['use_eou'] else NOT_GIVEN
     )
     logger.info("AgentSession created.")

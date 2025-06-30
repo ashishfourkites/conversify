@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversify Voice Assistant</title>
+    <title>FK Conversational AI</title>
     <style>
         * {
             margin: 0;
@@ -53,14 +53,12 @@
             margin: 0 auto 2rem;
         }
 
-        .mic-button {
-            width: 120px;
-            height: 120px;
+        .conversation-indicator {
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
-            border: none;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            cursor: pointer;
+            border: 3px solid #333;
+            background: #1a1a1a;
             position: absolute;
             top: 50%;
             left: 50%;
@@ -69,48 +67,85 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            overflow: hidden;
         }
 
-        .mic-button:hover {
-            transform: translate(-50%, -50%) scale(1.05);
-            box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+        .conversation-indicator.connected {
+            border-color: #667eea;
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.3);
         }
 
-        .mic-button:active {
-            transform: translate(-50%, -50%) scale(0.95);
+        .conversation-indicator.listening {
+            animation: pulse-listening 2s infinite;
+            border-color: #38ef7d;
         }
 
-        .mic-button.listening {
-            animation: pulse 1.5s infinite;
+        .conversation-indicator.speaking {
+            animation: pulse-speaking 1s infinite;
+            border-color: #f5576c;
         }
 
-        .mic-button.connected {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            box-shadow: 0 4px 20px rgba(56, 239, 125, 0.4);
-        }
-
-        .mic-button.speaking {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            box-shadow: 0 4px 20px rgba(245, 87, 108, 0.4);
-            animation: pulse 0.8s infinite;
-        }
-
-        @keyframes pulse {
+        @keyframes pulse-listening {
             0% {
-                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+                box-shadow: 0 0 30px rgba(56, 239, 125, 0.3);
             }
             50% {
-                box-shadow: 0 4px 40px rgba(102, 126, 234, 0.8);
+                box-shadow: 0 0 50px rgba(56, 239, 125, 0.6);
             }
             100% {
-                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+                box-shadow: 0 0 30px rgba(56, 239, 125, 0.3);
             }
         }
 
-        .mic-icon {
-            width: 48px;
-            height: 48px;
+        @keyframes pulse-speaking {
+            0% {
+                box-shadow: 0 0 30px rgba(245, 87, 108, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 50px rgba(245, 87, 108, 0.6);
+            }
+            100% {
+                box-shadow: 0 0 30px rgba(245, 87, 108, 0.3);
+            }
+        }
+
+        .waveform {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 60px;
+        }
+
+        .waveform-bar {
+            width: 4px;
+            background: #667eea;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+            opacity: 0.8;
+        }
+
+        .conversation-indicator.listening .waveform-bar {
+            background: #38ef7d;
+            animation: wave 1.2s ease-in-out infinite;
+        }
+
+        .conversation-indicator.speaking .waveform-bar {
+            background: #f5576c;
+            animation: wave 0.8s ease-in-out infinite;
+        }
+
+        .waveform-bar:nth-child(1) { animation-delay: 0s; }
+        .waveform-bar:nth-child(2) { animation-delay: 0.1s; }
+        .waveform-bar:nth-child(3) { animation-delay: 0.2s; }
+        .waveform-bar:nth-child(4) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(5) { animation-delay: 0.4s; }
+        .waveform-bar:nth-child(6) { animation-delay: 0.5s; }
+        .waveform-bar:nth-child(7) { animation-delay: 0.6s; }
+        .waveform-bar:nth-child(8) { animation-delay: 0.7s; }
+
+        @keyframes wave {
+            0%, 100% { height: 20px; }
+            50% { height: 40px; }
         }
 
         .status {
@@ -170,6 +205,12 @@
             cursor: not-allowed;
         }
 
+        .control-button.active {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+            color: #667eea;
+        }
+
         .transcript {
             margin-top: 2rem;
             padding: 1rem;
@@ -207,37 +248,19 @@
             font-size: 0.9rem;
         }
 
-        .loading {
+        .mic-icon {
+            width: 48px;
+            height: 48px;
+            color: #667eea;
             display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
         }
 
-        .loading.show {
+        .conversation-indicator:not(.connected) .mic-icon {
             display: block;
         }
 
-        .loading-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #667eea;
-            display: inline-block;
-            margin: 0 3px;
-            animation: loading 1.4s infinite ease-in-out both;
-        }
-
-        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
-        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
-
-        @keyframes loading {
-            0%, 80%, 100% {
-                transform: scale(0);
-            } 40% {
-                transform: scale(1.0);
-            }
+        .conversation-indicator:not(.connected) .waveform {
+            display: none;
         }
 
         @media (max-width: 600px) {
@@ -246,36 +269,37 @@
                 width: 150px;
                 height: 150px;
             }
-            .mic-button {
-                width: 100px;
-                height: 100px;
-            }
-            .mic-icon {
-                width: 36px;
-                height: 36px;
+            .conversation-indicator {
+                width: 120px;
+                height: 120px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Conversify</h1>
+        <h1>FK Conversational AI</h1>
         <p class="subtitle">AI Voice Assistant</p>
         
         <div class="mic-container">
-            <button id="micButton" class="mic-button" disabled>
+            <div id="conversationIndicator" class="conversation-indicator">
                 <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                     <line x1="12" y1="19" x2="12" y2="23"></line>
                     <line x1="8" y1="23" x2="16" y2="23"></line>
                 </svg>
-                <div class="loading">
-                    <span class="loading-dot"></span>
-                    <span class="loading-dot"></span>
-                    <span class="loading-dot"></span>
+                <div class="waveform">
+                    <div class="waveform-bar" style="height: 20px;"></div>
+                    <div class="waveform-bar" style="height: 30px;"></div>
+                    <div class="waveform-bar" style="height: 25px;"></div>
+                    <div class="waveform-bar" style="height: 35px;"></div>
+                    <div class="waveform-bar" style="height: 35px;"></div>
+                    <div class="waveform-bar" style="height: 25px;"></div>
+                    <div class="waveform-bar" style="height: 30px;"></div>
+                    <div class="waveform-bar" style="height: 20px;"></div>
                 </div>
-            </button>
+            </div>
         </div>
         
         <div class="status" id="status">
@@ -287,6 +311,7 @@
         
         <div class="controls">
             <button id="connectBtn" class="control-button" disabled>Connect</button>
+            <button id="muteBtn" class="control-button" disabled>Mute</button>
             <button id="transcriptBtn" class="control-button">Show Transcript</button>
         </div>
         
@@ -299,21 +324,24 @@
     <script>
         // Configuration
         const LIVEKIT_URL = 'wss://fk-ivr-utmji7un.livekit.cloud';
-        const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTEzNjk1ODUsImlzcyI6IkFQSUR6N1luYjJSdXRBSiIsIm5iZiI6MTc1MTI4MzE4NSwic3ViIjoiY29udmVyc2lmeS1kZXYiLCJ2aWRlbyI6eyJjYW5QdWJsaXNoIjp0cnVlLCJjYW5QdWJsaXNoRGF0YSI6dHJ1ZSwiY2FuU3Vic2NyaWJlIjp0cnVlLCJyb29tIjoiY29udmVyc2lmeS1kZXYiLCJyb29tSm9pbiI6dHJ1ZX19.IcGvply75vByF8aPUhEMt6fDIraD5_jEBEQo1MyQ_KY';
+        const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTEzNzEzMDEsImlzcyI6IkFQSUR6N1luYjJSdXRBSiIsIm5iZiI6MTc1MTI4NDkwMSwic3ViIjoidXNlci0xMjMiLCJ2aWRlbyI6eyJjYW5QdWJsaXNoIjp0cnVlLCJjYW5QdWJsaXNoRGF0YSI6dHJ1ZSwiY2FuU3Vic2NyaWJlIjp0cnVlLCJyb29tIjoiY29udmVyc2lmeS1kZXYiLCJyb29tSm9pbiI6dHJ1ZX19.Ym9veUiRuTMNy7KueF-M931PLcvPHxHg8c6oFgQLNJA';
 
         // Global variables
         let room;
         let audioTrack;
         let isConnected = false;
-        let isMuted = true;
+        let isMuted = false; // Start unmuted for natural conversation
         let LiveKitSDK;
+        let agentSpeaking = false;
+        let userSpeaking = false;
 
         // Get DOM elements
-        const micButton = document.getElementById('micButton');
+        const conversationIndicator = document.getElementById('conversationIndicator');
         const statusText = document.getElementById('statusText');
         const status = document.getElementById('status');
         const error = document.getElementById('error');
         const connectBtn = document.getElementById('connectBtn');
+        const muteBtn = document.getElementById('muteBtn');
         const transcriptBtn = document.getElementById('transcriptBtn');
         const transcript = document.getElementById('transcript');
 
@@ -321,7 +349,6 @@
         function waitForLiveKit() {
             return new Promise((resolve) => {
                 const checkInterval = setInterval(() => {
-                    // Check multiple possible locations
                     if (typeof LivekitClient !== 'undefined') {
                         LiveKitSDK = LivekitClient;
                         clearInterval(checkInterval);
@@ -341,7 +368,6 @@
                     }
                 }, 100);
 
-                // Timeout after 10 seconds
                 setTimeout(() => {
                     clearInterval(checkInterval);
                     resolve();
@@ -365,6 +391,58 @@
             connectBtn.disabled = false;
         }
 
+        // Update UI based on conversation state
+        function updateConversationState() {
+            conversationIndicator.classList.remove('listening', 'speaking');
+            
+            if (!isConnected) {
+                statusText.textContent = 'Disconnected';
+                return;
+            }
+
+            if (agentSpeaking) {
+                conversationIndicator.classList.add('speaking');
+                statusText.textContent = 'Assistant is speaking...';
+            } else if (userSpeaking) {
+                conversationIndicator.classList.add('listening');
+                statusText.textContent = 'Listening to you...';
+            } else {
+                statusText.textContent = 'Ready - Just speak!';
+            }
+        }
+
+        // Voice Activity Detection for visual feedback
+        function setupVoiceActivityDetection(audioTrack) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            // Get the media stream from the audio track
+            const mediaStream = new MediaStream([audioTrack.mediaStreamTrack]);
+            const source = audioContext.createMediaStreamSource(mediaStream);
+            source.connect(analyser);
+
+            function checkAudioLevel() {
+                analyser.getByteFrequencyData(dataArray);
+                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                
+                // Simple threshold-based detection
+                const wasUserSpeaking = userSpeaking;
+                userSpeaking = average > 30 && !isMuted; // Adjust threshold as needed
+                
+                if (wasUserSpeaking !== userSpeaking) {
+                    updateConversationState();
+                }
+
+                if (isConnected) {
+                    requestAnimationFrame(checkAudioLevel);
+                }
+            }
+
+            checkAudioLevel();
+        }
+
         // Connect to LiveKit room
         async function connectToRoom() {
             try {
@@ -374,7 +452,6 @@
 
                 console.log('Creating Room object with SDK:', LiveKitSDK);
                 
-                // Create room instance - this is just a client object, not creating a server room
                 room = new LiveKitSDK.Room({
                     adaptiveStream: true,
                     dynacast: true,
@@ -383,14 +460,14 @@
 
                 // Set up event handlers
                 room.on('connected', () => {
-                    console.log('Connected to existing room: conversify-dev');
+                    console.log('Connected to room');
                     isConnected = true;
-                    statusText.textContent = 'Connected';
                     status.classList.add('connected');
-                    micButton.disabled = false;
-                    micButton.classList.add('connected');
+                    conversationIndicator.classList.add('connected');
+                    muteBtn.disabled = false;
                     connectBtn.textContent = 'Disconnect';
                     connectBtn.disabled = false;
+                    updateConversationState();
                 });
 
                 room.on('disconnected', (reason) => {
@@ -400,7 +477,6 @@
 
                 room.on('participantConnected', (participant) => {
                     console.log('Participant connected:', participant.identity);
-                    // Only show message for other participants (likely the agent)
                     if (participant.identity !== 'conversify-dev') {
                         addToTranscript(`${participant.identity} joined`, 'system');
                     }
@@ -408,11 +484,34 @@
 
                 room.on('trackSubscribed', (track, publication, participant) => {
                     console.log('Track subscribed:', track.kind, 'from', participant.identity);
-                    if (track.kind === 'audio') {
-                        // Attach and play agent's audio
+                    if (track.kind === 'audio' && participant.identity !== 'conversify-dev') {
                         const audioElement = track.attach();
                         document.body.appendChild(audioElement);
+                        
+                        // Monitor agent's speaking state
+                        audioElement.addEventListener('play', () => {
+                            agentSpeaking = true;
+                            updateConversationState();
+                        });
+                        
+                        audioElement.addEventListener('pause', () => {
+                            agentSpeaking = false;
+                            updateConversationState();
+                        });
+                        
+                        audioElement.addEventListener('ended', () => {
+                            agentSpeaking = false;
+                            updateConversationState();
+                        });
+                        
                         audioElement.play().catch(e => console.error('Audio play failed:', e));
+                    }
+                });
+
+                room.on('trackUnsubscribed', (track, publication, participant) => {
+                    if (track.kind === 'audio' && participant.identity !== 'conversify-dev') {
+                        agentSpeaking = false;
+                        updateConversationState();
                     }
                 });
 
@@ -421,28 +520,27 @@
                     error.textContent = `Room error: ${err.message}`;
                 });
 
-                // Connect to the existing room on LiveKit Cloud
-                console.log('Connecting to existing room "conversify-dev" on LiveKit Cloud...');
+                // Connect to room
+                console.log('Connecting to room...');
                 await room.connect(LIVEKIT_URL, TOKEN);
                 console.log('Successfully connected!');
 
-                // Create local audio track
+                // Create and publish audio track - START UNMUTED for natural conversation
                 console.log('Creating local audio track...');
                 audioTrack = await LiveKitSDK.createLocalAudioTrack({
                     echoCancellation: true,
                     noiseSuppression: true,
+                    autoGainControl: true,
                 });
 
-                // Publish audio track
                 await room.localParticipant.publishTrack(audioTrack);
-                console.log('Audio track published');
+                console.log('Audio track published - microphone is active!');
                 
-                // Start muted
-                await audioTrack.mute();
-                console.log('Microphone muted by default');
-
-                // Your agent should now receive a job!
-                addToTranscript('Connected to room. Agent should join shortly...', 'system');
+                // Set up voice activity detection
+                setupVoiceActivityDetection(audioTrack);
+                
+                // The conversation is ready to start naturally
+                addToTranscript('Connected! Just start speaking - I\'m listening.', 'system');
 
             } catch (err) {
                 console.error('Connection failed:', err);
@@ -455,36 +553,38 @@
 
         function handleDisconnect() {
             isConnected = false;
-            statusText.textContent = 'Disconnected';
+            agentSpeaking = false;
+            userSpeaking = false;
             status.classList.remove('connected');
-            micButton.disabled = true;
-            micButton.classList.remove('connected', 'listening', 'speaking');
+            conversationIndicator.classList.remove('connected', 'listening', 'speaking');
+            muteBtn.disabled = true;
+            muteBtn.classList.remove('active');
             connectBtn.textContent = 'Connect';
             connectBtn.disabled = false;
-            isMuted = true;
+            isMuted = false;
+            updateConversationState();
         }
 
-        // Microphone button handler
-        micButton.addEventListener('click', async () => {
-            if (!isConnected || !audioTrack) {
-                console.log('Cannot toggle mic: not connected or no audio track');
-                return;
-            }
+        // Mute button handler
+        muteBtn.addEventListener('click', async () => {
+            if (!isConnected || !audioTrack) return;
 
             try {
                 if (isMuted) {
                     await audioTrack.unmute();
-                    micButton.classList.add('listening');
-                    statusText.textContent = 'Listening...';
+                    muteBtn.textContent = 'Mute';
+                    muteBtn.classList.remove('active');
                     isMuted = false;
-                    console.log('Microphone unmuted - you can speak now!');
+                    console.log('Microphone unmuted');
                 } else {
                     await audioTrack.mute();
-                    micButton.classList.remove('listening');
-                    statusText.textContent = 'Connected';
+                    muteBtn.textContent = 'Unmute';
+                    muteBtn.classList.add('active');
                     isMuted = true;
+                    userSpeaking = false;
                     console.log('Microphone muted');
                 }
+                updateConversationState();
             } catch (err) {
                 console.error('Error toggling microphone:', err);
                 error.textContent = `Microphone error: ${err.message}`;
